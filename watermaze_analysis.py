@@ -17,6 +17,7 @@ import glob #For use of wild cards in getting .ann files
 import matplotlib.pylab as plt
 import matplotlib.mlab as mlab
 import sys
+import matplotlib.patches as mpatches
 
 pd.set_option('display.precision',5)
 
@@ -69,8 +70,8 @@ def zone(frame):
     """
     gfpmice = frame[frame['Group']=='GFP']
     appmice = frame[frame['Group']=='APP']
-    gfpmice = gfpmice[['Zone (% time)   Radius:   15.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
-    appmice = appmice[['Zone (% time)   Radius:   15.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
+    gfpmice = gfpmice[['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
+    appmice = appmice[['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
     
     #mean
     avggfpzone = gfpmice.mean(axis=0)
@@ -91,16 +92,16 @@ def zone(frame):
     zoneplot(zone_all,err)
     
     #mean
-    avgothergfp = avggfpzone[['Zone (% time)   Radius:   15.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
-    avgotherapp = avgappzone[['Zone (% time)   Radius:   15.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
+    avgothergfp = avggfpzone[['Zone (% time)   Radius:   20.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
+    avgotherapp = avgappzone[['Zone (% time)   Radius:   20.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
     zone_other = pd.concat([avggfpzone[1:3],avgappzone[1:3]],axis=0)
     zone_other[1] = avgothergfp
     zone_other[3] = avgotherapp
     zone_other.index = ['T','O','T','O']
     
     #error
-    avggfperr = gfperr[['Zone (% time)   Radius:   15.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
-    avgapperr = apperr[['Zone (% time)   Radius:   15.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
+    avggfperr = gfperr[['Zone (% time)   Radius:   20.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
+    avgapperr = apperr[['Zone (% time)   Radius:   20.0','Unnamed: 42','Unnamed: 43']].mean(axis=0)
     othererr = pd.concat([gfperr[1:3],apperr[1:3]], axis=0)
     othererr[1] = avggfperr
     othererr[3] = avgapperr
@@ -177,6 +178,9 @@ def otherplot(frame, err):
     produces a bar graph where T and O indices have distinct columns for all groups (ie. GFP, APP)
     """
     frame.plot(kind='bar', yerr=err, color = ['blue','blue','green','green'])
+    blue_patch = mpatches.Patch(color='blue', label='GFP')
+    green_patch = mpatches.Patch(color='green', label='APP')
+    plt.legend(handles=[blue_patch,green_patch])
     plt.title('Time spent in Zone')
     plt.ylabel('Time (sec)')
     plt.xlabel('Zone')
@@ -213,7 +217,7 @@ To do:
 
 if __name__ == "__main__":
     
-    probe = load_data('C1C2probe.csv')
+    probe = load_data('probe_1-4_20cm.csv')
     """
     trainingdata = load_data('trainingdata.csv')
     trainingdata = trainingdata[['Animal','Date','Trial duration', 'Distance travelled (cm)', 'Average speed','% time near walls']]
@@ -226,20 +230,91 @@ if __name__ == "__main__":
     gfp = grouped[grouped['Animal'].isin(gfpmice)]
     gfp.name=('GFP')
     app = app.groupby('Date').mean()
+    app.index = ['1','2','3']
     gfp = gfp.groupby('Date').mean()
+    gfp.index = ['1','2','3']
     
+    grouperr = trainingdata.groupby(['Animal','Date']).sem()
+    grouperr = grouperr.reset_index()
+    apperr = grouperr[grouperr['Animal'].isin(appmice)]
+    apperr.name=('APP')
+    gfperr = grouperr[grouperr['Animal'].isin(gfpmice)]
+    gfperr.name=('GFP')
+    apperr = apperr.groupby('Date').mean()
+    gfperr = gfperr.groupby('Date').mean()
+    apperr.index = ['1','2','3']
+    gfperr.index = ['1','2','3']
     
-    appduration = app['Trial duration']
-    appduration.name=('APP')
-    gfpduration = gfp['Trial duration']
-    gfpduration.name=('GFP')
-    duration = pd.concat([gfpduration,appduration],axis=1)
+    duration = pd.concat([gfp['Trial duration'],app['Trial duration']],axis=1)
+    duration.columns = ['GFP','APP']
+    durationerr = pd.concat([gfperr['Trial duration'],apperr['Trial duration']],axis=1)
+    durationerr.columns = ['GFP','APP']
+    duration.plot(yerr=durationerr)
+    plt.title('Trial Duration')
+    plt.ylabel('Time (sec)')
+    plt.xlabel('Day')
+    plt.show()    
+    
+    distance = pd.concat([gfp['Distance travelled (cm)'],app['Distance travelled (cm)']],axis=1)
+    distance.columns = ['GFP','APP']
+    distanceerr = pd.concat([gfperr['Distance travelled (cm)'],apperr['Distance travelled (cm)']],axis=1)
+    distanceerr.columns = ['GFP','APP']
+    distance.plot(yerr=distanceerr)
+    plt.title('Distance travelled')
+    plt.ylabel('Distance (cm)')
+    plt.xlabel('Day')
+    plt.show()   
+    
+    speed = pd.concat([gfp['Average speed'],app['Average speed']],axis=1)
+    speed.columns = ['GFP','APP']
+    speederr = pd.concat([gfperr['Average speed'],apperr['Average speed']],axis=1)
+    speederr.columns = ['GFP','APP']
+    speed.plot(yerr=speederr)
+    plt.title('Average Swim Speed')
+    plt.ylabel('Speed (cm/sec)')
+    plt.xlabel('Day')
+    plt.show()   
+    
+    thigmo = pd.concat([gfp['% time near walls'],app['% time near walls']],axis=1)
+    thigmo.columns = ['GFP','APP']
+    thigmoerr = pd.concat([gfperr['% time near walls'],apperr['% time near walls']],axis=1)
+    thigmoerr.columns = ['GFP','APP']
+    thigmo.plot(yerr=thigmoerr)
+    plt.title('Thigmotaxis')
+    plt.ylabel('Time (sec)')
+    plt.xlabel('Day')
+    plt.show()   
     """
+    
     label_groups(probe)
-    
-    #gfpmice = gfpmice.drop('m2')
-    
+    probe = probe.drop('m3')
+    probe = probe.drop('m7')
+    probe = probe.drop('m12')
+    probe = probe.drop('m15')
+    probe = probe.drop('m16')
+
     zone(probe)
+    t = scipy.stats.ttest_ind(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
+    a = scipy.stats.f_oneway(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
+    """
+    gfpmice = probe[probe['Group']=='GFP']
+    appmice = probe[probe['Group']=='APP']
+   
+    prox = pd.DataFrame()
+    prox['GFP'] = [gfpmice['Average Proximity'].astype(float).mean()]
+    prox['APP'] = [appmice['Average Proximity'].astype(float).mean()]
+    proxerr = pd.DataFrame()
+    proxerr['GFP'] = [gfpmice['Average Proximity'].astype(float).sem()]
+    proxerr['APP'] = [appmice['Average Proximity'].astype(float).sem()]
+    prox.plot(kind='bar', yerr=proxerr)
+    plt.title('Average Proximity')
+    plt.ylabel('Proximity (cm)')
+    plt.xlabel('')
+    locs, labels = plt.xticks()
+    plt.setp(labels,rotation=0)
+    plt.show()
+    """
+    
     #quadrant(probe)
  
   
