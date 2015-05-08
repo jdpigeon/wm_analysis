@@ -9,21 +9,17 @@ Purpose: Load Water Maze data into python arrays
 Input: a csv file containing either training or probe data
 """
 import pandas as pd
-import scipy as sp
 import scipy.stats
-import pickle #To unpickle the tank coordinates out of the .ann file
 import numpy as np
-import glob #For use of wild cards in getting .ann files
 import matplotlib.pylab as plt
-import matplotlib.mlab as mlab
-import sys
 import matplotlib.patches as mpatches
+import seaborn as sns
 
 pd.set_option('display.precision',5)
 
 def load_data(filename):
     """
-    loads data from csv file, cleaning up rows and columns that include only nan entries
+    loads data from csv file, removing rows and columns that include only NaN entries from probe files, but leaving trainingdata files alone
     
     Input: filename    
     Output: dataframe (df) object of data
@@ -68,11 +64,9 @@ def zone(frame):
     Input: probe data
     Output: zone_all and zone_other plot 
     """
-    gfpmice = frame[frame['Group']=='GFP']
-    appmice = frame[frame['Group']=='APP']
-    gfpmice = gfpmice[['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
-    appmice = appmice[['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
-    
+    gfpmice = frame[frame['Group']=='GFP'][['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
+    appmice = frame[frame['Group']=='APP'][['Zone (% time)   Radius:   20.0','Unnamed: 41','Unnamed: 42','Unnamed: 43']]
+       
     #mean
     avggfpzone = gfpmice.mean(axis=0)
     avgappzone = appmice.mean(axis=0)
@@ -139,88 +133,16 @@ def quadrant(frame):
     
     quadplot(zonestats,err)
     
-##########Graphing Functions##############
+def training(frame):
+    """
+    Creates 4 line plots for Trial Duration, Distance Travelled, Thigmotaxis, and Swim Speed during training days
+    Unlike zone and quadrant, this function has the plotting functions inside of it
     
-def single(frame):
+    Input: dataframe containing consolidated training data for all mice
+    Output: line plots
     """
-    produces a graph of time in zone for an individual mouse's probe trial
-    In the future, may be able to take string input and find appropriate data from master frame
-    as of now, requires individual mouse's zone data as input
-   
-    """
-    plt.figure(figsize=(12,12))
-    frame.plot(kind='bar')
-    plt.title('Time spent in Zone', fontsize='xx-large')
-    plt.ylabel('Time (sec)', fontsize='xx-large')
-    plt.xlabel('')
-    plt.yticks(fontsize='xx-large')
-    locs, labels = plt.xticks()
-    plt.setp(labels,rotation=0,fontsize='xx-large')
-    plt.legend(['Zone','1','T','2','4'], fontsize='xx-large')
-    fig = matplotlib.pyplot.gcf()
-    fig.set_size_inches(8,5)
-    fig.savefig('test2png.png',dpi=100)
-
-def zoneplot(frame, err):
-    """
-    produces a graph for zone plots. Works for both all zone and zone vs other
-    """
-    frame.plot(kind='bar',yerr=err)
-    plt.title('Time spent in Zone')
-    plt.ylabel('Time (sec)')
-    plt.xlabel('Zone')
-    locs, labels = plt.xticks()
-    plt.setp(labels,rotation=0)
-    plt.show()
     
-def otherplot(frame, err):
-    """
-    produces a bar graph where T and O indices have distinct columns for all groups (ie. GFP, APP)
-    """
-    frame.plot(kind='bar', yerr=err, color = ['blue','blue','green','green'])
-    blue_patch = mpatches.Patch(color='blue', label='GFP')
-    green_patch = mpatches.Patch(color='green', label='APP')
-    plt.legend(handles=[blue_patch,green_patch])
-    plt.title('Time spent in Zone')
-    plt.ylabel('Time (sec)')
-    plt.xlabel('Zone')
-    locs, labels = plt.xticks()
-    plt.setp(labels,rotation=0)
-    plt.show()
-    
-def quadplot(frame, err):
-    """
-    produces a graph for zone plots. Works for both all zone and zone vs other
-    """
-    frame.plot(kind='bar',yerr=err)
-    plt.title('Time spent in Quadrant')
-    plt.ylabel('Time (%)')
-    plt.xlabel('Quadrant')
-    locs, labels = plt.xticks()
-    plt.setp(labels,rotation=0)
-    
-def confidence_interval(data, confidence=0.95):
-    a = 1.0*np.array(data)
-    n = len(a)
-    m, se = np.mean(a), scipy.stats.sem(a)
-    h = se * sp.stats.t._ppf((1+confidence)/2., n-1)
-    return m-h
-
-
-    """
-To do:
-4. write advanced exclude mouse function
-2. Finish up training data graphing function
-3. Alter zone_other graphing so that bars are grouped together
-"""
-##########################  
-
-if __name__ == "__main__":
-    
-    probe = load_data('probe_1-4_20cm.csv')
-    """
-    trainingdata = load_data('trainingdata.csv')
-    trainingdata = trainingdata[['Animal','Date','Trial duration', 'Distance travelled (cm)', 'Average speed','% time near walls']]
+    trainingdata = frame[['Animal','Date','Trial duration', 'Distance travelled (cm)', 'Average speed','% time near walls']]
     grouped = trainingdata.groupby(['Animal','Date']).mean()
     grouped = grouped.reset_index()
     appmice = ['m3','m4','m7','m8']
@@ -236,12 +158,10 @@ if __name__ == "__main__":
     
     grouperr = trainingdata.groupby(['Animal','Date']).sem()
     grouperr = grouperr.reset_index()
-    apperr = grouperr[grouperr['Animal'].isin(appmice)]
+    apperr = grouperr[grouperr['Animal'].isin(appmice)].groupby('Date').mean()
     apperr.name=('APP')
-    gfperr = grouperr[grouperr['Animal'].isin(gfpmice)]
+    gfperr = grouperr[grouperr['Animal'].isin(gfpmice)].groupby('Date').mean()
     gfperr.name=('GFP')
-    apperr = apperr.groupby('Date').mean()
-    gfperr = gfperr.groupby('Date').mean()
     apperr.index = ['1','2','3']
     gfperr.index = ['1','2','3']
     
@@ -283,37 +203,148 @@ if __name__ == "__main__":
     plt.title('Thigmotaxis')
     plt.ylabel('Time (sec)')
     plt.xlabel('Day')
-    plt.show()   
-    """
+    plt.show() 
     
-    label_groups(probe)
-    probe = probe.drop('m3')
-    probe = probe.drop('m7')
-    probe = probe.drop('m12')
-    probe = probe.drop('m15')
-    probe = probe.drop('m16')
-
-    zone(probe)
-    t = scipy.stats.ttest_ind(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
-    a = scipy.stats.f_oneway(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
+def proximity(frame):
     """
-    gfpmice = probe[probe['Group']=='GFP']
-    appmice = probe[probe['Group']=='APP']
-   
+    Produces a graph of the mean average proximity of the two groups
+
+    Input: probe data
+    Output: bar plot with mean average proximity for APP and GFP groups
+    """
+    gfpmice = frame[frame['Group']=='GFP']
+    appmice = frame[frame['Group']=='APP']
     prox = pd.DataFrame()
     prox['GFP'] = [gfpmice['Average Proximity'].astype(float).mean()]
     prox['APP'] = [appmice['Average Proximity'].astype(float).mean()]
     proxerr = pd.DataFrame()
     proxerr['GFP'] = [gfpmice['Average Proximity'].astype(float).sem()]
     proxerr['APP'] = [appmice['Average Proximity'].astype(float).sem()]
+    
     prox.plot(kind='bar', yerr=proxerr)
     plt.title('Average Proximity')
-    plt.ylabel('Proximity (cm)')
-    plt.xlabel('')
+    plt.ylabel('Proximity to zone (cm)')
     locs, labels = plt.xticks()
     plt.setp(labels,rotation=0)
     plt.show()
+    
+    
+##########Graphing Functions##############
+    
+def single(frame):
     """
+    produces a graph of time in zone for an individual mouse's probe trial
+    In the future, may be able to take string input and find appropriate data from master frame
+    as of now, requires individual mouse's zone data as input
+   
+   Input: 4 element dataframe containing time in zone data for one mouse
+   Output: 4 element categorical bar plot
+   
+    """
+    plt.figure(figsize=(12,12))
+    frame.plot(kind='bar')
+    plt.title('Time spent in Zone', fontsize='xx-large')
+    plt.ylabel('Time (sec)', fontsize='xx-large')
+    plt.xlabel('')
+    plt.yticks(fontsize='xx-large')
+    locs, labels = plt.xticks()
+    plt.setp(labels,rotation=0,fontsize='xx-large')
+    plt.legend(['Zone','1','T','2','4'], fontsize='xx-large')
+    fig = matplotlib.pylab.gcf()
+    fig.set_size_inches(8,5)
+    fig.savefig('test2png.png',dpi=100)
+
+def zoneplot(frame, err):
+    """
+    produces a standard bar plot for zone data. Works for both all zone and zone vs other
+    
+    Input: 2 x 4 Dataframe containing mean times in each zone for both APP and GFP groups, identical form Dataframe with SE values
+    Output: 4 element bar plot with two groups
+
+    """    
+    sns.set_context("talk")
+    frame.plot(kind='bar',yerr=err)
+    plt.title('Time spent in Zone')
+    plt.ylabel('Time (sec)')
+    plt.xlabel('Zone')
+    locs, labels = plt.xticks()
+    plt.setp(labels,rotation=0)
+    plt.show()
+    
+    
+def otherplot(frame, err):
+    """
+    produces a bar graph where T and O indices have distinct columns for all groups (ie. GFP, APP)
+    
+    Input: 2 x 4 Dataframe containing mean times in each zone for both APP and GFP groups, identical form Datafram with SE values
+    Output: 4 element bar plot with groups seperated into T and O bars, including error bars
+    """
+    sns.set_context("talk")
+    frame.plot(kind='bar', yerr=err, color = ['#389422','#389422','#1a62a6', '#1a62a6',])
+    blue_patch = mpatches.Patch(color='#389422', label='GFP')
+    green_patch = mpatches.Patch(color='#1a62a6', label='APP')
+    plt.legend(handles=[blue_patch,green_patch])
+    plt.title('Time spent in Zone')
+    plt.ylabel('Time (sec)')
+    plt.xlabel('Zone')
+    locs, labels = plt.xticks()
+    plt.setp(labels,rotation=0)
+    plt.show()
+    
+def quadplot(frame, err):
+    """
+    produces a graph for zone plots. Works for both all zone and zone vs other
+    
+    Input: 2 x 4 Dataframe containing mean times in each zone for both APP and GFP groups, identical form Datafram with SE values
+    Output: 4 element bar plot with two groups, including error bars
+    """
+    frame.plot(kind='bar',yerr=err)
+    plt.title('Time spent in Quadrant')
+    plt.ylabel('Time (%)')
+    plt.xlabel('Quadrant')
+    locs, labels = plt.xticks()
+    plt.setp(labels,rotation=0)
+    
+
+##########################  
+
+if __name__ == "__main__":
+        
+    sns.set_palette(['#389422','#1a62a6', '#ef6922'],3,1) #Leo's Colors http://leonardorestivo.sciple.org/portfolio/colors/
+    probe = load_data('finalprobe.csv')
+    trainingdata = load_data('trainingdata.csv')
+
+    probe = probe.drop('m3')
+    probe = probe.drop('m4')
+    probe = probe.drop('m6')
+    probe = probe.drop('m7')
+    probe = probe.drop('m12')
+    probe = probe.drop('m14')
+    probe = probe.drop('m15')
+    probe = probe.drop('m16')
+    probe = probe.drop('m17')
+    probe = probe.drop('m18')
+    probe = probe.drop('m20')
+    probe = probe.drop('m21')
+    probe = probe.drop('m23')
+    
+    training(trainingdata)
+    zone(probe)
+    quadrant(probe)
+    proximity(probe)
+    
+    gfpmice = probe[probe['Group']=='GFP']
+    appmice = probe[probe['Group']=='APP']
+    
+    #T-test and oneway ANOVA statistics for differences in target zone time between groups    
+    t = scipy.stats.ttest_ind(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
+    a = scipy.stats.f_oneway(gfpmice['Unnamed: 41'],appmice['Unnamed: 41'])
+
+
+
+
+ 
+    
     
     #quadrant(probe)
  
